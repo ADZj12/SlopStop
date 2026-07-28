@@ -42,10 +42,12 @@ class Checker:
         client: RegistryClient,
         popular: Iterable[str] = (),
         corpus: Optional[Corpus] = None,
+        cache=None,
     ) -> None:
         self._client = client
         self._popular = list(popular)
         self._corpus = corpus
+        self._cache = cache
 
     def check(
         self,
@@ -53,7 +55,13 @@ class Checker:
         name: str,
         record: bool = True,
         source: str = "manual",
+        use_cache: bool = True,
     ) -> RiskAssessment:
+        if use_cache and self._cache is not None:
+            cached = self._cache.get(ecosystem, name)
+            if cached is not None:
+                return cached
+
         try:
             facts = self._client.lookup(ecosystem, name)
         except InvalidPackageName as exc:
@@ -69,6 +77,9 @@ class Checker:
             )
 
         assessment = signature.assess(facts, self._popular)
+
+        if use_cache and self._cache is not None:
+            self._cache.put(ecosystem, name, assessment)
 
         if record and self._corpus is not None:
             self._corpus.record(assessment, source=source)

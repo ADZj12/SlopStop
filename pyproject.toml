@@ -17,6 +17,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+mcp = ["mcp>=1.10,<2"]
 
 [project.scripts]
 slopstop = "slopstop.cli:main"
