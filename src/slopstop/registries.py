@@ -18,6 +18,9 @@ lives in signature.py so the policy is testable in isolation.
 from __future__ import annotations
 
 import json
+import random
+import socket
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -75,13 +78,28 @@ def _iso_to_age_days(iso_value: Optional[str]) -> Optional[float]:
 class RegistryClient:
     """Fetches package facts. Injectable so tests never touch the network."""
 
-    def __init__(self, user_agent: str, timeout: int) -> None:
+    def __init__(
+        self,
+        user_agent: str,
+        timeout: int,
+        retries: int = 2,
+        backoff: float = 0.4,
+    ) -> None:
         self._user_agent = user_agent
         self._timeout = timeout
+        self._retries = max(retries, 0)
+        self._backoff = max(backoff, 0.0)
         self._opener = _build_opener()
 
     def _fetch_json(self, url: str) -> Optional[dict]:
-        """Return parsed JSON, None for a 404, or raise for other failures."""
+        """Return parsed JSON, None for a 404, or raise for other failures.
+
+        Transient failures (timeouts, connection errors, and 5xx responses) are
+        retried with exponential backoff, since a single dropped request should
+        not read as a package that could not be verified. A 404 is a clean
+        absence and returns immediately; a non 404 client error is not
+        transient and is not retried.
+        """
         request = urllib.request.Request(
             url,
             headers={
@@ -90,16 +108,30 @@ class RegistryClient:
             },
             method="GET",
         )
-        try:
-            with self._opener.open(request, timeout=self._timeout) as response:
-                body = response.read(_MAX_BYTES + 1)
-            if len(body) > _MAX_BYTES:
-                raise OversizeResponse("registry document larger than cap")
-            return json.loads(body.decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                return None  # a clean absence, the key hallucination signal
-            raise
+        last_exc: Optional[Exception] = None
+        for attempt in range(self._retries + 1):
+            try:
+                with self._opener.open(request, timeout=self._timeout) as response:
+                    body = response.read(_MAX_BYTES + 1)
+                if len(body) > _MAX_BYTES:
+                    raise OversizeResponse("registry document larger than cap")
+                return json.loads(body.decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    return None  # a clean absence, the key hallucination signal
+                if exc.code < 500:
+                    raise  # a client error is not transient
+                last_exc = exc  # a server error may pass on retry
+            except (urllib.error.URLError, socket.timeout, TimeoutError,
+                    ConnectionError) as exc:
+                last_exc = exc
+
+            if attempt < self._retries:
+                delay = self._backoff * (2 ** attempt) + random.uniform(0, 0.1)
+                time.sleep(delay)
+
+        assert last_exc is not None
+        raise last_exc
 
     def lookup(self, ecosystem: Ecosystem, name: str) -> PackageFacts:
         validated = names.validate(ecosystem, name)
