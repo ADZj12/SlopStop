@@ -48,6 +48,21 @@ def _tokens(name: str) -> set[str]:
 
 _MIN_OVERLAP = 4
 
+# Ubiquitous infrastructure and filler tokens. A real conflation slopsquat
+# borrows a distinctive segment from a package name (codeshift, codemod), not a
+# word that appears across hundreds of packages. If every token that drives a
+# match is generic, the overlap is coincidence, not a fusion, so these are
+# excluded before matching. This is what stops names like http-https and
+# http-reasons being read as conflations of httpx and aiohttp.
+_GENERIC_TOKENS = frozenset({
+    "http", "https", "http2", "url", "uri", "api", "rest", "cli", "core",
+    "util", "utils", "common", "node", "web", "app", "apps", "server",
+    "client", "lib", "libs", "data", "sdk", "rpc", "json", "xml", "html",
+    "css", "dom", "log", "logs", "test", "tests", "mock", "config", "env",
+    "dev", "prod", "src", "dist", "bin", "async", "sync", "helper", "helpers",
+    "tool", "tools", "kit", "plugin", "module", "package", "reasons", "status",
+})
+
 
 def _overlaps(candidate_tokens: set[str], pop: str) -> bool:
     """True when a candidate token overlaps a popular name by a real segment.
@@ -73,19 +88,25 @@ def _overlaps(candidate_tokens: set[str], pop: str) -> bool:
 def _conflation_match(name: str, popular: Iterable[str]) -> tuple[bool, list[str]]:
     """Detect a name that fuses segments from two distinct popular packages.
 
-    A slopsquat conflation borrows a segment from one real package and a
-    segment from another. If a candidate overlaps two or more different popular
-    names, and is not itself one of them, that is the fusion signature.
+    A slopsquat conflation borrows a distinctive segment from one real package
+    and a segment from another. Generic infrastructure tokens are dropped
+    first, so a name built only from common words is not mistaken for a fusion.
+    A match requires two or more distinct popular contributors, and the
+    candidate must not itself be a known package.
     """
     popular = list(popular)
     if name in popular:
-        return False, []  # it is itself a known package, not a fusion
+        return False, []
 
     candidate_tokens = _tokens(name)
     if len(candidate_tokens) < 2:
         return False, []
 
-    contributors = [pop for pop in popular if _overlaps(candidate_tokens, pop)]
+    distinctive = {t for t in candidate_tokens if t not in _GENERIC_TOKENS}
+    if not distinctive:
+        return False, []
+
+    contributors = [pop for pop in popular if _overlaps(distinctive, pop)]
     distinct = sorted(set(contributors))
     return (len(distinct) >= 2), distinct[:4]
 

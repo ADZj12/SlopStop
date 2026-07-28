@@ -56,6 +56,7 @@ def test_fresh_registration_is_suspicious():
 
 
 def test_conflation_of_two_popular_names_is_flagged():
+    # react-codeshift fuses react-codemod and jscodeshift.
     facts = _facts(
         name="react-codeshift",
         age_days=90,
@@ -69,6 +70,10 @@ def test_conflation_of_two_popular_names_is_flagged():
 
 
 def test_established_convention_name_is_not_flagged():
+    # An old, heavily released package with a repo that fuses tokens by
+    # convention (like react-router-dom) must be treated as safe, not
+    # flagged as a conflation. This is the regression guard for the false
+    # positive found during Stage 1 calibration.
     popular = ["react", "react-dom", "react-router", "react-codemod"]
     facts = _facts(
         name="react-router-dom",
@@ -80,3 +85,20 @@ def test_established_convention_name_is_not_flagged():
     result = assess(facts, popular)
     assert result.verdict is Verdict.SAFE
     assert not any("fuses tokens" in r for r in result.reasons)
+
+def test_generic_token_name_is_not_a_conflation():
+    # http-https and http-reasons were false positives during the 2024 name
+    # calibration: the generic token http matched httpx and aiohttp. A name
+    # built only from generic tokens must not be read as a fusion.
+    popular = ["httpx", "aiohttp", "requests"]
+    for name in ("http-https", "http-reasons"):
+        facts = _facts(
+            name=name,
+            age_days=300,
+            release_count=1,
+            has_description=True,
+            has_repository=False,
+        )
+        result = assess(facts, popular)
+        assert not any("fuses tokens" in r for r in result.reasons), name
+        assert result.verdict is Verdict.SAFE, name
