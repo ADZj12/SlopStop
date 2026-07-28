@@ -27,6 +27,7 @@ class Verdict(str, Enum):
     UNKNOWN = "unknown"      # could not determine, treat with caution
     SUSPICIOUS = "suspicious"  # exists but carries slopsquat signature
     HALLUCINATED = "hallucinated"  # does not exist at all
+    DEPRECATED = "deprecated"  # exists and is not a slopsquat, but abandoned
 
 
 @dataclass
@@ -47,6 +48,8 @@ class PackageFacts:
     has_description: Optional[bool] = None
     has_repository: Optional[bool] = None
     age_days: Optional[float] = None
+    deprecated: Optional[bool] = None
+    deprecated_reason: Optional[str] = None
     lookup_error: Optional[str] = None
 
 
@@ -62,5 +65,20 @@ class RiskAssessment:
     facts: Optional[PackageFacts] = None
 
     def is_blocking(self) -> bool:
-        """True when an agent should refuse to install without review."""
+        """True for a security concern that block mode should hard stop.
+
+        Deprecation is deliberately not here: an abandoned package is a quality
+        problem, not a security threat, so it is advised against but never hard
+        blocked.
+        """
         return self.verdict in {Verdict.HALLUCINATED, Verdict.SUSPICIOUS}
+
+    def is_flagged(self) -> bool:
+        """True for anything a developer should not install as is.
+
+        This is the set the advisory log records and that the advice marks as
+        flagged: the security concerns plus deprecation.
+        """
+        return self.verdict in {
+            Verdict.HALLUCINATED, Verdict.SUSPICIOUS, Verdict.DEPRECATED,
+        }

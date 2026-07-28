@@ -29,6 +29,7 @@ from .models import Ecosystem, RiskAssessment, Verdict
 # Seconds each verdict stays fresh.
 _DEFAULT_TTL: dict[Verdict, float] = {
     Verdict.SAFE: 6 * 60 * 60.0,     # 6 hours
+    Verdict.DEPRECATED: 6 * 60 * 60.0,  # 6 hours: deprecation is stable
     Verdict.HALLUCINATED: 15 * 60.0,  # 15 minutes
     Verdict.SUSPICIOUS: 15 * 60.0,    # 15 minutes
     Verdict.UNKNOWN: 2 * 60.0,        # 2 minutes

@@ -102,3 +102,50 @@ def test_generic_token_name_is_not_a_conflation():
         result = assess(facts, popular)
         assert not any("fuses tokens" in r for r in result.reasons), name
         assert result.verdict is Verdict.SAFE, name
+
+def test_deprecated_package_gets_deprecated_verdict():
+    # A real, established package that is deprecated is not a slopsquat, but
+    # should not be installed. This is the xss-clean case.
+    facts = _facts(
+        name="xss-clean",
+        age_days=1152,
+        release_count=8,
+        has_description=True,
+        has_repository=True,
+        deprecated=True,
+        deprecated_reason="Package no longer supported.",
+    )
+    result = assess(facts, POPULAR)
+    assert result.verdict is Verdict.DEPRECATED
+    assert result.is_flagged()
+    assert not result.is_blocking()  # quality flag, not a security block
+    assert any("deprecated" in r.lower() for r in result.reasons)
+
+
+def test_non_deprecated_established_package_stays_safe():
+    # The xss case: real, maintained, not deprecated, must remain safe.
+    facts = _facts(
+        name="xss",
+        age_days=877,
+        release_count=40,
+        has_description=True,
+        has_repository=True,
+        deprecated=False,
+    )
+    result = assess(facts, POPULAR)
+    assert result.verdict is Verdict.SAFE
+
+
+def test_security_concern_outranks_deprecation():
+    # A fresh, hollow, deprecated package is still suspicious, not merely
+    # deprecated, because the security signal dominates.
+    facts = _facts(
+        name="ghost-fresh",
+        age_days=3,
+        release_count=1,
+        has_description=False,
+        has_repository=False,
+        deprecated=True,
+    )
+    result = assess(facts, POPULAR)
+    assert result.verdict is Verdict.SUSPICIOUS

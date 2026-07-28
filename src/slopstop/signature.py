@@ -196,8 +196,21 @@ def assess(
 
     score = min(score, 90)
 
+    deprecated = bool(facts.deprecated)
+    dep_note = (
+        facts.deprecated_reason or "marked deprecated by the maintainer"
+    )
+
     if score >= _SUSPICIOUS_SCORE:
+        # A security concern outranks deprecation. Note the deprecation too.
         verdict = Verdict.SUSPICIOUS
+        if deprecated:
+            reasons.append(f"also deprecated: {dep_note}")
+    elif deprecated:
+        # Real, not a slopsquat, but abandoned. The developer's question is
+        # whether to install it, and the answer is no.
+        verdict = Verdict.DEPRECATED
+        reasons.append(f"package is deprecated: {dep_note}")
     elif score <= _SAFE_MAX_SCORE:
         verdict = Verdict.SAFE
         if not reasons:

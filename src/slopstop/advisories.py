@@ -47,6 +47,10 @@ _ADVICE = {
         "This package exists but shows slopsquat signals. Review it carefully "
         "before installing, and confirm it is the package you meant."
     ),
+    Verdict.DEPRECATED: (
+        "This package is real but deprecated by its maintainer. Do not adopt it "
+        "for new work. Find a maintained alternative."
+    ),
     Verdict.UNKNOWN: (
         "This package could not be verified. Retry, or check it manually before "
         "installing."
@@ -62,14 +66,13 @@ def build_advice(assessment: RiskAssessment, mode: str) -> dict:
     on mode, whether a blocking verdict is returned as data (advisory) or
     raised as an error (block).
     """
-    blocked = assessment.is_blocking()
     return {
         "ecosystem": assessment.ecosystem.value,
         "name": assessment.name,
         "verdict": assessment.verdict.value,
         "score": assessment.score,
         "safe_to_install": assessment.verdict is Verdict.SAFE,
-        "flagged": blocked,
+        "flagged": assessment.is_flagged(),
         "mode": mode,
         "advice": _ADVICE.get(assessment.verdict, "No advice available."),
         "reasons": list(assessment.reasons),
@@ -96,8 +99,8 @@ class AdvisoryLog:
         return conn
 
     def record(self, assessment: RiskAssessment, mode: str) -> bool:
-        """Log a blocking advisory. Returns True if one was recorded."""
-        if not assessment.is_blocking():
+        """Log a flagged advisory. Returns True if one was recorded."""
+        if not assessment.is_flagged():
             return False
         with self._connect() as conn, closing(conn.cursor()) as cur:
             cur.execute(

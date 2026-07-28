@@ -34,6 +34,7 @@ _LABELS = {
     Verdict.UNKNOWN: "UNKNOWN",
     Verdict.SUSPICIOUS: "SUSPICIOUS",
     Verdict.HALLUCINATED: "HALLUCINATED",
+    Verdict.DEPRECATED: "DEPRECATED",
 }
 
 
