@@ -178,6 +178,20 @@ class RegistryClient:
         repo = data.get("repository")
         description = data.get("description")
 
+        # npm marks deprecation per version. We read the latest version's
+        # deprecated field, which is the maintainer's explicit signal that the
+        # package should no longer be used. This is what catches an abandoned
+        # but otherwise real package like xss-clean.
+        dist_tags = data.get("dist-tags", {}) if isinstance(data, dict) else {}
+        latest = dist_tags.get("latest")
+        deprecated_msg = None
+        if latest and isinstance(versions.get(latest), dict):
+            raw = versions[latest].get("deprecated")
+            if isinstance(raw, str) and raw.strip():
+                deprecated_msg = raw.strip()
+            elif raw:
+                deprecated_msg = "marked deprecated by the maintainer"
+
         return PackageFacts(
             ecosystem=Ecosystem.NPM,
             name=name,
@@ -188,6 +202,8 @@ class RegistryClient:
             has_description=bool(description),
             has_repository=bool(repo),
             age_days=_iso_to_age_days(created),
+            deprecated=bool(deprecated_msg),
+            deprecated_reason=deprecated_msg,
         )
 
     def _lookup_pypi(self, name: str) -> PackageFacts:
@@ -226,6 +242,18 @@ class RegistryClient:
         urls = info.get("project_urls") or {}
         home = info.get("home_page")
 
+        # PyPI has no single deprecated field. The closest explicit signal a
+        # maintainer sets is the inactive development status classifier. It is
+        # rare, so PyPI deprecation coverage is narrower than npm.
+        classifiers = info.get("classifiers") or []
+        inactive = any(
+            isinstance(c, str) and "Development Status :: 7 - Inactive" in c
+            for c in classifiers
+        )
+        deprecated_reason = (
+            "maintainer marked the project inactive" if inactive else None
+        )
+
         return PackageFacts(
             ecosystem=Ecosystem.PYPI,
             name=name,
@@ -236,6 +264,8 @@ class RegistryClient:
             has_description=bool(description),
             has_repository=bool(urls) or bool(home),
             age_days=_iso_to_age_days(first_iso),
+            deprecated=inactive,
+            deprecated_reason=deprecated_reason,
         )
 
 
