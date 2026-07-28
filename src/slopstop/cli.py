@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 from . import scanner
+from .advisories import AdvisoryLog
 from .cache import VerdictCache
 from .calibration import load_cases, run_calibration
 from .checker import Checker, load_popular
@@ -148,6 +149,55 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
     return 0 if met else 1
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    try:
+        from .mcp_server import run_server
+    except ImportError as exc:
+        print(
+            f"could not start the MCP server: {exc}\n"
+            "if the mcp package is missing, install it with: "
+            "pip install slopstop[mcp]",
+            file=sys.stderr,
+        )
+        return 2
+    run_server()
+    return 0
+
+
+def cmd_advisories(args: argparse.Namespace) -> int:
+    settings = load_settings()
+    log = AdvisoryLog(settings.db_path)
+
+    installed: set[tuple[str, str]] = set()
+    if args.manifest:
+        manifest = Path(args.manifest)
+        if not manifest.exists():
+            print(f"file not found: {manifest}", file=sys.stderr)
+            return 2
+        for eco, name in scanner.scan_path(manifest):
+            installed.add((eco.value, name.lower()))
+
+    pairs = log.cross_reference(installed, limit=args.limit)
+    if not pairs:
+        print("no advisories recorded yet")
+        return 0
+
+    ignored = 0
+    for row, was_ignored in pairs:
+        tag = ""
+        if args.manifest:
+            tag = "  [IGNORED: still in manifest]" if was_ignored else "  [not installed]"
+            if was_ignored:
+                ignored += 1
+        print(f"[{row['verdict'].upper()}] {row['ecosystem']}:{row['name']}  "
+              f"risk={row['score']}  mode={row['mode']}{tag}")
+
+    print(f"\n{len(pairs)} advisories")
+    if args.manifest:
+        print(f"{ignored} ignored (flagged but present in {args.manifest})")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="slopstop",
@@ -190,6 +240,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="gate: minimum acceptable recall (default 0.90)",
     )
     p_cal.set_defaults(func=cmd_calibrate)
+
+    p_serve = sub.add_parser(
+        "serve", help="run the agent hook as an MCP stdio server",
+    )
+    p_serve.set_defaults(func=cmd_serve)
+
+    p_adv = sub.add_parser(
+        "advisories", help="list flagged packages, and which were ignored",
+    )
+    p_adv.add_argument(
+        "--manifest", default=None,
+        help="a requirements.txt or package.json to mark ignored advisories",
+    )
+    p_adv.add_argument(
+        "--limit", type=int, default=50, help="how many advisories to show",
+    )
+    p_adv.set_defaults(func=cmd_advisories)
 
     return parser
 
