@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slopstop"
+version = "0.1.0"
+description = "Catch hallucinated and slopsquatted packages before an agent installs them."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["security", "supply chain", "slopsquatting", "npm", "pypi", "ai agents"]
+
+# Zero runtime dependencies by design. A tool that defends the software
+# supply chain must not expand it. Everything runs on the standard library.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+slopstop = "slopstop.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

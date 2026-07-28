@@ -1,0 +1,85 @@
+# ============================================================
+# SLOPSTOP: files that must NEVER be pushed
+# ============================================================
+# Rule: if a file can contain a secret, a credential, a user's
+# package data, or machine local state, it stays out of git.
+# When in doubt, it does NOT get committed.
+# ============================================================
+
+# ---- Secrets and credentials (highest priority) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*_rsa
+*_rsa.pub
+*.credentials
+credentials.json
+secrets.json
+service_account*.json
+api_keys*
+token.txt
+*.token
+
+# ---- Local corpus, database, and collected data ----
+# The raw corpus and the flip database are machine local state.
+# They can contain package names pulled from a user environment,
+# which counts as telemetry and must never be published.
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/corpus_local/
+data/raw/
+data/telemetry/
+*.corpus
+
+# ---- Logs (may contain package names from a user workspace) ----
+*.log
+logs/
+
+# ---- Python build and cache artifacts ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+.installed.cfg
+*.manifest
+*.spec
+
+# ---- Virtual environments ----
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ---- Test and coverage output ----
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Editor and OS noise ----
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ---- Local overrides ----
+config.local.*
+settings.local.*
+*.local

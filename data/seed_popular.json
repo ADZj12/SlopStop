@@ -1,0 +1,15 @@
+{
+  "_comment": "Curated list of widely used packages used only for the conflation signal. Safe to commit. Not user data. Extend over time from public download rankings.",
+  "npm": [
+    "react", "react-dom", "react-router", "react-codemod", "jscodeshift",
+    "lodash", "express", "axios", "chalk", "commander", "webpack", "vite",
+    "eslint", "eslint-plugin-unused-imports", "prettier", "typescript",
+    "next", "vue", "svelte", "redux", "jest", "mocha", "moment", "dayjs"
+  ],
+  "pypi": [
+    "requests", "urllib3", "numpy", "pandas", "flask", "fastapi", "django",
+    "pydantic", "httpx", "sqlalchemy", "pytest", "click", "rich", "boto3",
+    "scikit-learn", "torch", "transformers", "huggingface-hub", "pillow",
+    "matplotlib", "beautifulsoup4", "aiohttp", "uvicorn", "celery"
+  ]
+}
